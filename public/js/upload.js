@@ -7,7 +7,7 @@
  * Upload page logic — split into three focused layers:
  *   1. Validation  — client-side file checks (size, type)
  *   2. UI          — DOM state transitions (file preview, loading, status)
- *   3. API         — multipart POST to /api/upload
+ *   3. API         — multipart POST to /api/upload (one request per file)
  */
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -20,27 +20,41 @@ const ALLOWED_TYPES = new Set([
 ]);
 const MAX_BYTES = 50 * 1024 * 1024; // 50 MB
 
+const FILE_ICON_SVG = `
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+  </svg>`;
+
+const REMOVE_ICON_SVG = `
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <line x1="18" y1="6" x2="6" y2="18"/>
+    <line x1="6" y1="6" x2="18" y2="18"/>
+  </svg>`;
+
 // ── DOM references ────────────────────────────────────────────────────────────
 
 const els = {
-    dropzone:      document.getElementById('dropzone'),
-    fileInput:     document.getElementById('fileInput'),
-    filePreview:   document.getElementById('filePreview'),
-    previewName:   document.getElementById('previewName'),
-    previewSize:   document.getElementById('previewSize'),
-    removeBtn:     document.getElementById('removeFile'),
-    submitBtn:     document.getElementById('submitBtn'),
-    uploaderInput: document.getElementById('uploaderInput'),
-    statusSuccess: document.getElementById('statusSuccess'),
-    statusError:   document.getElementById('statusError'),
-    successDetail: document.getElementById('successDetail'),
-    errorTitle:    document.getElementById('errorTitle'),
-    errorDetail:   document.getElementById('errorDetail'),
+    uploadForm:           document.getElementById('uploadForm'),
+    uploadSuccess:        document.getElementById('uploadSuccess'),
+    uploadSuccessMessage: document.getElementById('uploadSuccessMessage'),
+    uploadAgainBtn:       document.getElementById('uploadAgainBtn'),
+    dropzone:             document.getElementById('dropzone'),
+    fileInput:            document.getElementById('fileInput'),
+    filePreviewList:      document.getElementById('filePreviewList'),
+    submitBtn:            document.getElementById('submitBtn'),
+    uploaderInput:        document.getElementById('uploaderInput'),
+    statusError:          document.getElementById('statusError'),
+    errorTitle:           document.getElementById('errorTitle'),
+    errorDetail:          document.getElementById('errorDetail'),
 };
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
-let selectedFile = null;
+/** @type {File[]} */
+let selectedFiles = [];
 
 // ── Validation layer ──────────────────────────────────────────────────────────
 
@@ -55,13 +69,13 @@ function validate(file) {
     if (!ALLOWED_TYPES.has(file.type)) {
         return {
             title: 'Unsupported file type',
-            detail: 'Please upload a PDF, JPG, PNG or TIFF file.',
+            detail: `"${file.name}" is not a PDF, JPG, PNG or TIFF file.`,
         };
     }
     if (file.size > MAX_BYTES) {
         return {
             title: 'File too large',
-            detail: `Maximum size is 50 MB. Your file is ${formatBytes(file.size)}.`,
+            detail: `"${file.name}" is ${formatBytes(file.size)}. Maximum size is 50 MB per file.`,
         };
     }
     return null;
@@ -70,7 +84,7 @@ function validate(file) {
 // ── API layer ─────────────────────────────────────────────────────────────────
 
 /**
- * Posts the selected file (and optional uploader ID) to the API.
+ * Posts a single file (and optional uploader ID) to the API.
  *
  * @param {File}   file
  * @param {string} uploaderId  Optional — may be empty string
@@ -108,7 +122,6 @@ function friendlyError(code) {
 }
 
 function clearStatus() {
-    els.statusSuccess.classList.remove('visible');
     els.statusError.classList.remove('visible');
 }
 
@@ -116,33 +129,74 @@ function showError(title, detail) {
     els.errorTitle.textContent  = title;
     els.errorDetail.textContent = detail;
     els.statusError.classList.add('visible');
-    els.statusSuccess.classList.remove('visible');
 }
 
-function showSuccess(detail) {
-    els.successDetail.textContent = detail;
-    els.statusSuccess.classList.add('visible');
-    els.statusError.classList.remove('visible');
+function showSuccess(message) {
+    els.uploadSuccessMessage.textContent = message;
+    els.uploadForm.hidden = true;
+    els.uploadSuccess.hidden = false;
 }
 
-function showFilePreview(file) {
-    els.previewName.textContent = file.name;
-    els.previewSize.textContent = formatBytes(file.size);
-    els.filePreview.classList.add('visible');
-    els.submitBtn.disabled = false;
+function resetUploadPage() {
+    els.uploadSuccess.hidden = true;
+    els.uploadForm.hidden = false;
+    clearFiles();
+    els.uploaderInput.value = '';
+    clearStatus();
+    updateSubmitButton();
 }
 
-function hideFilePreview() {
-    els.filePreview.classList.remove('visible');
-    els.submitBtn.disabled = true;
+function isDuplicate(file) {
+    return selectedFiles.some((f) => f.name === file.name && f.size === file.size);
 }
 
-function setLoadingState() {
-    els.submitBtn.disabled = true;
-    els.submitBtn.innerHTML = `<div class="spinner"></div> Uploading…`;
+function renderFilePreview() {
+    els.filePreviewList.innerHTML = '';
+
+    selectedFiles.forEach((file, index) => {
+        const row = document.createElement('div');
+        row.className = 'file-preview visible';
+        row.innerHTML = `
+          <span class="file-preview__icon">${FILE_ICON_SVG}</span>
+          <span class="file-preview__name">${escapeHtml(file.name)}</span>
+          <span class="file-preview__size">${formatBytes(file.size)}</span>
+          <button type="button" class="file-preview__remove" data-index="${index}"
+                  aria-label="Remove ${escapeHtml(file.name)}">
+            ${REMOVE_ICON_SVG}
+          </button>`;
+        els.filePreviewList.appendChild(row);
+    });
+
+    els.filePreviewList.classList.toggle('visible', selectedFiles.length > 0);
+    updateSubmitButton();
 }
 
-function resetSubmitButton() {
+function escapeHtml(text) {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function updateSubmitButton() {
+    const count = selectedFiles.length;
+    els.submitBtn.disabled = count === 0;
+
+    if (count === 0) {
+        els.submitBtn.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          Send`;
+        return;
+    }
+
+    const label = count === 1 ? 'Send 1 file' : `Send ${count} files`;
     els.submitBtn.innerHTML = `
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2"
@@ -151,37 +205,72 @@ function resetSubmitButton() {
         <polyline points="17 8 12 3 7 8"/>
         <line x1="12" y1="3" x2="12" y2="15"/>
       </svg>
-      Send to print shop
-    `;
-    els.submitBtn.disabled = !selectedFile;
+      ${label}`;
+}
+
+function setLoadingState(current, total) {
+    els.submitBtn.disabled = true;
+    const label = total === 1
+        ? 'Uploading…'
+        : `Uploading ${current} of ${total}…`;
+    els.submitBtn.innerHTML = `<div class="spinner"></div> ${label}`;
 }
 
 // ── File selection logic ──────────────────────────────────────────────────────
 
-function selectFile(file) {
-    if (!file) return;
-
-    const err = validate(file);
-    if (err) {
-        showError(err.title, err.detail);
-        return;
-    }
+function selectFiles(fileList) {
+    const files = Array.from(fileList);
+    if (!files.length) return;
 
     clearStatus();
-    selectedFile = file;
-    showFilePreview(file);
+
+    const rejected = [];
+    const added = [];
+
+    for (const file of files) {
+        const err = validate(file);
+        if (err) {
+            rejected.push({ file, err });
+            continue;
+        }
+        if (isDuplicate(file)) {
+            continue;
+        }
+        added.push(file);
+    }
+
+    if (added.length) {
+        selectedFiles = selectedFiles.concat(added);
+        renderFilePreview();
+    }
+
+    if (rejected.length === 1) {
+        showError(rejected[0].err.title, rejected[0].err.detail);
+    } else if (rejected.length > 1) {
+        const names = rejected.map((r) => r.file.name).join(', ');
+        showError(
+            'Some files were skipped',
+            `${rejected.length} file(s) could not be added: ${names}.`
+        );
+    }
 }
 
-function clearFile() {
-    selectedFile = null;
+function removeFile(index) {
+    selectedFiles.splice(index, 1);
     els.fileInput.value = '';
-    hideFilePreview();
+    renderFilePreview();
+    clearStatus();
+}
+
+function clearFiles() {
+    selectedFiles = [];
+    els.fileInput.value = '';
+    renderFilePreview();
     clearStatus();
 }
 
 // ── Event handlers ────────────────────────────────────────────────────────────
 
-// Drag & drop
 els.dropzone.addEventListener('dragover', (e) => {
     e.preventDefault();
     els.dropzone.classList.add('drag-over');
@@ -196,43 +285,79 @@ els.dropzone.addEventListener('dragover', (e) => {
 els.dropzone.addEventListener('drop', (e) => {
     e.preventDefault();
     els.dropzone.classList.remove('drag-over');
-    const file = e.dataTransfer.files[0];
-    if (file) selectFile(file);
-});
-
-// File input change
-els.fileInput.addEventListener('change', () => {
-    if (els.fileInput.files[0]) selectFile(els.fileInput.files[0]);
-});
-
-// Remove file
-els.removeBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    clearFile();
-});
-
-// Submit
-els.submitBtn.addEventListener('click', async () => {
-    if (!selectedFile) return;
-
-    clearStatus();
-    setLoadingState();
-
-    const uploaderId = els.uploaderInput.value.trim();
-
-    try {
-        const { ok, data } = await postUpload(selectedFile, uploaderId);
-
-        if (ok) {
-            showSuccess(`"${data.filename}" has been sent to the print queue.`);
-            clearFile();
-            els.uploaderInput.value = '';
-        } else {
-            showError(friendlyError(data.error), data.message || 'Please try again.');
-        }
-    } catch {
-        showError('Connection error', 'Could not reach the server. Check your internet connection.');
-    } finally {
-        resetSubmitButton();
+    if (e.dataTransfer.files.length) {
+        selectFiles(e.dataTransfer.files);
     }
 });
+
+els.fileInput.addEventListener('change', () => {
+    if (els.fileInput.files.length) {
+        selectFiles(els.fileInput.files);
+    }
+});
+
+els.filePreviewList.addEventListener('click', (e) => {
+    const btn = e.target.closest('.file-preview__remove');
+    if (!btn) return;
+    e.stopPropagation();
+    removeFile(Number(btn.dataset.index));
+});
+
+els.submitBtn.addEventListener('click', async () => {
+    if (!selectedFiles.length) return;
+
+    clearStatus();
+    const uploaderId = els.uploaderInput.value.trim();
+    const total = selectedFiles.length;
+    const succeeded = [];
+    const failed = [];
+
+    for (let i = 0; i < selectedFiles.length; i++) {
+        setLoadingState(i + 1, total);
+
+        try {
+            const { ok, data } = await postUpload(selectedFiles[i], uploaderId);
+            if (ok) {
+                succeeded.push(data.filename);
+            } else {
+                failed.push({
+                    name: selectedFiles[i].name,
+                    title: friendlyError(data.error),
+                    detail: data.message || 'Please try again.',
+                });
+            }
+        } catch {
+            failed.push({
+                name: selectedFiles[i].name,
+                title: 'Connection error',
+                detail: 'Could not reach the server.',
+            });
+        }
+    }
+
+    if (succeeded.length && !failed.length) {
+        const message = succeeded.length === 1
+            ? `"${succeeded[0]}" was sent successfully. We'll handle the rest.`
+            : `${succeeded.length} files were sent successfully. We'll handle the rest.`;
+        showSuccess(message);
+    } else if (succeeded.length && failed.length) {
+        const failedNames = failed.map((f) => f.name).join(', ');
+        showError(
+            'Some uploads failed',
+            `${succeeded.length} of ${total} files uploaded. Failed: ${failedNames}.`
+        );
+        selectedFiles = selectedFiles.filter((f) =>
+            failed.some((item) => item.name === f.name)
+        );
+        renderFilePreview();
+    } else {
+        const first = failed[0];
+        showError(first.title, first.detail);
+    }
+
+    updateSubmitButton();
+});
+
+els.uploadAgainBtn.addEventListener('click', resetUploadPage);
+
+updateSubmitButton();

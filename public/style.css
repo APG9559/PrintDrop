@@ -158,7 +158,18 @@ body {
   height: 100%;
 }
 
-/* ── Selected file preview ────────────────────────────────────────────────── */
+/* ── Selected files list ──────────────────────────────────────────────────── */
+.file-preview-list {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.file-preview-list.visible {
+  display: flex;
+}
+
 .file-preview {
   display: none;
   align-items: center;
@@ -305,6 +316,40 @@ body {
   background: rgba(255, 255, 255, 0.05); 
   color: var(--text-1); 
   border-color: var(--text-2);
+}
+
+/* ── Upload success view ──────────────────────────────────────────────────── */
+.upload-success {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2.5rem 1rem;
+  animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.upload-success:not([hidden]) {
+  display: flex;
+}
+
+.upload-success__icon {
+  color: var(--success);
+  margin-bottom: 1rem;
+}
+
+.upload-success__title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-1);
+  margin-bottom: 0.5rem;
+}
+
+.upload-success__message {
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+  max-width: 28rem;
 }
 
 /* ── Status banner ────────────────────────────────────────────────────────── */
