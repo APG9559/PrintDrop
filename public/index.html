@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gurav PrintDrop — Upload your file</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="page">
+
+    <header class="header">
+      <div class="header__logo">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+          <rect x="1" y="1" width="20" height="20" rx="5" fill="#2563eb" />
+          <path d="M7 11.5L10 14.5L15 8.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"
+            stroke-linejoin="round" />
+        </svg>
+        PrintDrop
+      </div>
+      <p class="header__sub">Upload your file and we'll handle the rest.</p>
+    </header>
+
+    <div class="card">
+
+      <!-- Drop zone -->
+      <div class="dropzone" id="dropzone" role="button" aria-label="Click or drag a file here to upload">
+        <input class="dropzone__input" type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff"
+          aria-label="Select file" />
+        <div class="dropzone__icon" id="dropIcon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+        </div>
+        <p class="dropzone__title">Drop your file here or click to browse</p>
+        <p class="dropzone__sub">PDF, JPG, PNG or TIFF &nbsp;·&nbsp; Max 50 MB</p>
+      </div>
+
+      <!-- File preview -->
+      <div class="file-preview" id="filePreview" aria-live="polite">
+        <span class="file-preview__icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+          </svg>
+        </span>
+        <span class="file-preview__name" id="previewName">—</span>
+        <span class="file-preview__size" id="previewSize">—</span>
+        <button class="file-preview__remove" id="removeFile" aria-label="Remove file">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Optional uploader name -->
+      <div class="field">
+        <label class="field__label" for="uploaderInput">Your name or email</label>
+        <input class="field__input" type="text" id="uploaderInput" placeholder="e.g. Akash or akash@example.com"
+          maxlength="100" autocomplete="name" />
+        <p class="field__hint">Optional — helps us contact you when your print is ready.</p>
+      </div>
+
+      <!-- Submit button -->
+      <button class="btn btn--primary" id="submitBtn" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+        Send
+      </button>
+
+      <!-- Status messages -->
+      <div class="status status--success" id="statusSuccess" role="alert" aria-live="polite">
+        <span class="status__icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+            <polyline points="22 4 12 14.01 9 11.01" />
+          </svg>
+        </span>
+        <div class="status__text">
+          <div class="status__title">File received!</div>
+          <div id="successDetail">Your file has been sent to the print queue.</div>
+        </div>
+      </div>
+
+      <div class="status status--error" id="statusError" role="alert" aria-live="polite">
+        <span class="status__icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+        </span>
+        <div class="status__text">
+          <div class="status__title" id="errorTitle">Upload failed</div>
+          <div id="errorDetail">Please try again.</div>
+        </div>
+      </div>
+
+    </div><!-- .card -->
+  </div><!-- .page -->
+
+  <script src="/js/upload.js"></script>
+</body>
+
+</html>
