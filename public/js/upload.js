@@ -17,6 +17,12 @@ const ALLOWED_TYPES = new Set([
     'image/jpeg',
     'image/png',
     'image/tiff',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/vnd.ms-powerpoint',
 ]);
 const MAX_BYTES = 50 * 1024 * 1024; // 50 MB
 
@@ -66,10 +72,13 @@ let selectedFiles = [];
  * @returns {{ title: string, detail: string } | null}
  */
 function validate(file) {
-    if (!ALLOWED_TYPES.has(file.type)) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const officeExts = new Set(['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt', 'pdf', 'jpg', 'jpeg', 'png', 'tif', 'tiff']);
+
+    if (!ALLOWED_TYPES.has(file.type) && !officeExts.has(ext)) {
         return {
             title: 'Unsupported file type',
-            detail: `"${file.name}" is not a PDF, JPG, PNG or TIFF file.`,
+            detail: `"${file.name}" is not a PDF, JPG, PNG, TIFF, DOCX, XLSX or PPT file.`,
         };
     }
     if (file.size > MAX_BYTES) {

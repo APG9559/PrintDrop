@@ -56,9 +56,19 @@ function formatDate(isoString) {
 function getBadgeClass(mimeType) {
     if (!mimeType) return 'badge--other';
     const sub = mimeType.split('/')[1] || '';
-    return ['pdf', 'jpeg', 'jpg', 'png', 'tiff'].includes(sub)
-        ? `badge--${sub}`
-        : 'badge--other';
+    if (['pdf', 'jpeg', 'jpg', 'png', 'tiff'].includes(sub)) {
+        return `badge--${sub}`;
+    }
+    if (sub.includes('wordprocessingml') || sub === 'msword') {
+        return 'badge--docx';
+    }
+    if (sub.includes('spreadsheetml') || sub === 'vnd.ms-excel') {
+        return 'badge--xlsx';
+    }
+    if (sub.includes('presentationml') || sub === 'vnd.ms-powerpoint') {
+        return 'badge--pptx';
+    }
+    return 'badge--other';
 }
 
 /**
@@ -68,7 +78,20 @@ function getBadgeClass(mimeType) {
  */
 function getFriendlyType(mimeType) {
     if (!mimeType) return 'OTHER';
-    return (mimeType.split('/')[1] || 'OTHER').toUpperCase();
+    const sub = mimeType.split('/')[1] || '';
+    if (['pdf', 'jpeg', 'jpg', 'png', 'tiff'].includes(sub)) {
+        return sub.toUpperCase();
+    }
+    if (sub.includes('wordprocessingml') || sub === 'msword') {
+        return 'DOCX';
+    }
+    if (sub.includes('spreadsheetml') || sub === 'vnd.ms-excel') {
+        return 'XLSX';
+    }
+    if (sub.includes('presentationml') || sub === 'vnd.ms-powerpoint') {
+        return 'PPTX';
+    }
+    return (sub || 'OTHER').toUpperCase().slice(0, 8);
 }
 
 // ── API layer ─────────────────────────────────────────────────────────────────

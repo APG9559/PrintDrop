@@ -45,6 +45,12 @@ const config = {
             'image/jpeg',
             'image/png',
             'image/tiff',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'application/vnd.ms-powerpoint',
         ]),
         rateLimitWindowMs: 15 * 60 * 1000,     // 15 minutes
         rateLimitMaxRequests: 10,

@@ -77,17 +77,35 @@ router.post(
 
         // 2. Magic-byte MIME validation — do not trust the browser's Content-Type
         const detected = await fileType.fromBuffer(req.file.buffer);
-        if (!detected || !config.upload.allowedMimeTypes.has(detected.mime)) {
+        let mime = detected?.mime;
+
+        // Fallback to extension mapping for Office files since they are zip/cfb formats
+        if (!mime || mime === 'application/zip' || mime === 'application/x-cfb') {
+            const ext = (req.file.originalname || '').split('.').pop().toLowerCase();
+            const officeMimeMap = {
+                'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'doc': 'application/msword',
+                'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'xls': 'application/vnd.ms-excel',
+                'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                'ppt': 'application/vnd.ms-powerpoint'
+            };
+            if (officeMimeMap[ext]) {
+                mime = officeMimeMap[ext];
+            }
+        }
+
+        if (!mime || !config.upload.allowedMimeTypes.has(mime)) {
             log('2/6', 'rejected — unsupported file type', {
-                detectedMime: detected?.mime ?? null,
+                detectedMime: mime ?? null,
             });
             return res.status(415).json({
                 error: 'UNSUPPORTED_TYPE',
-                message: 'Only PDF, JPG, PNG and TIFF files are accepted.',
+                message: 'Only PDF, JPG, PNG, TIFF, DOCX, XLSX and PPT files are accepted.',
             });
         }
 
-        log('3/6', 'MIME validated', { detectedMime: detected.mime });
+        log('3/6', 'MIME validated', { detectedMime: mime });
 
         // 3. Sanitise filename and prefix with timestamp to avoid Box name collisions
         const originalClean = sanitize(req.file.originalname).trim() || 'upload';
